@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Ordens de Produção</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="mensagem" class="mensagem oculto"></div>
+    
+    <div class="glass-background"></div>
+
+    <main class="container">
+        <header class="app-header glass-panel">
+            <div class="header-content">
+                <div class="title-area">
+                    <i class="fas fa-industry logo-icon"></i>
+                    <h1>Gestão de Produção</h1>
+                </div>
+                <div class="status-area">
+                    <span id="api-status" class="badge">Conectando...</span>
+                </div>
+            </div>
+        </header>
+
+        <section class="form-section glass-panel">
+            <h2><i class="fas fa-plus-circle"></i> Nova Ordem de Produção</h2>
+            <form id="form-ordem" onsubmit="event.preventDefault(); criarOrdem();">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="produto">Produto</label>
+                        <input type="text" id="produto" placeholder="Nome do produto" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quantidade">Quantidade</label>
+                        <input type="number" id="quantidade" min="1" placeholder="Ex: 100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="status-novo">Status Inicial</label>
+                        <div class="select-wrapper">
+                            <select id="status-novo">
+                                <option value="Pendente">Pendente</option>
+                                <option value="Em andamento">Em andamento</option>
+                                <option value="Concluida">Concluída</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group form-actions">
+                        <button type="submit" id="btn-cadastrar" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Cadastrar Ordem
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section class="list-section glass-panel">
+            <div class="section-header">
+                <h2><i class="fas fa-clipboard-list"></i> Ordens Cadastradas</h2>
+                <button class="btn-icon" onclick="carregarOrdens()"><i class="fas fa-sync-alt"></i> Atualizar</button>
+            </div>
+            
+            <div id="sem-dados" class="empty-state oculto">
+                <i class="fas fa-box-open"></i>
+                <p>Nenhuma ordem de produção cadastrada no momento.</p>
+            </div>
+
+            <div class="table-container">
+                <table id="tabela-ordens" class="tabela">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Produto</th>
+                            <th>Quantidade</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpo-tabela">
+                        <!-- Linhas geradas via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="main.js"></script>
+</body>
+</html>
