@@ -1,49 +1,33 @@
 """
 app.py - Back-end Flask do Sistema de Ordens de Producao.
-API REST com CRUD completo, autenticacao por API Key,
-sanitizacao de entradas e tratamento de erros global.
-Author: Codex
-Date: 2026
-Version: 2.0.0 (com seguranca)
-SENAI Jaragua do Sul - Tecnico em Cibersistemas para Automacao WEG
 """
 
-from functools import wraps
-import datetime
-import html
-
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+from werkzeug.security import check_password_hash
 
+from auth_utils import gerar_token_jwt, requer_autenticacao, requer_roles
 from database import get_connection, init_db
+from order_services import (
+    ALLOWED_STATUSES,
+    ServiceError,
+    build_status_payload,
+    create_order,
+    delete_order,
+    detect_bottlenecks,
+    export_orders_pdf,
+    export_orders_xlsx,
+    forecast_overview,
+    get_order_by_id,
+    list_orders,
+    load_logs,
+    priority_order_sql,
+    update_order_status,
+)
 
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
-
-# Chave de autenticacao da API
-# Em producao: use variavel de ambiente
-API_KEY = 'senai-cibersistemas-2026-chave-segura'
-
-
-def requer_autenticacao(f):
-    """Protege rotas exigindo X-API-Key valida no cabecalho."""
-
-    @wraps(f)
-    def decorador(*args, **kwargs):
-        chave = request.headers.get('X-API-Key')
-
-        if not chave:
-            return jsonify({
-                'erro': 'Autenticacao necessaria. Envie X-API-Key.'
-            }), 401
-
-        if chave != API_KEY:
-            return jsonify({'erro': 'Chave de API invalida.'}), 403
-
-        return f(*args, **kwargs)
-
-    return decorador
 
 
 @app.errorhandler(400)
@@ -73,200 +57,176 @@ def method_not_allowed(e):
 
 @app.errorhandler(500)
 def internal_error(e):
-    return jsonify({
-        'erro': 'Erro interno. Contate o administrador.'
-    }), 500
+    return jsonify({'erro': 'Erro interno. Contate o administrador.'}), 500
 
 
 @app.route('/')
 def index():
-    """Serve o arquivo index.html da pasta static."""
     return app.send_static_file('index.html')
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    dados = request.get_json(silent=True)
+    if not dados:
+        return jsonify({'erro': 'Body ausente ou invalido.'}), 400
+
+    username = str(dados.get('username', '')).strip()
+    password = str(dados.get('password', '')).strip()
+    if not username or not password:
+        return jsonify({'erro': 'Informe usuario e senha.'}), 400
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT username, senha_hash, role FROM usuarios WHERE username = ?',
+            (username,)
+        )
+        usuario = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if usuario is None or not check_password_hash(usuario['senha_hash'], password):
+        return jsonify({'erro': 'Credenciais invalidas.'}), 401
+
+    return jsonify({
+        'token': gerar_token_jwt(usuario['username'], usuario['role']),
+        'usuario': {
+            'username': usuario['username'],
+            'role': usuario['role'],
+        }
+    }), 200
+
+
+@app.route('/me', methods=['GET'])
+@requer_autenticacao
+def me():
+    from auth_utils import usuario_atual
+
+    username, role = usuario_atual()
+    return jsonify({'username': username, 'role': role}), 200
 
 
 @app.route('/status')
 def status():
-    """Health check da API com contagem de ordens."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) AS total FROM ordens')
-    resultado = cursor.fetchone()
-    conn.close()
-
-    total_ordens = resultado['total']
-
-    return jsonify({
-        'status': 'online',
-        'sistema': 'Sistema de Ordens de Producao',
-        'versao': '2.0.0',
-        'total_ordens': total_ordens,
-        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    })
+    return jsonify(build_status_payload())
 
 
 @app.route('/ordens', methods=['GET'])
 def listar_ordens():
-    """Lista todas as ordens. Aceita ?status= como filtro."""
     status_filtro = request.args.get('status')
-
-    conn = get_connection()
-    cursor = conn.cursor()
+    ordenar = request.args.get('ordenar', '').strip().lower()
 
     if status_filtro:
-        cursor.execute(
-            'SELECT * FROM ordens WHERE status = ? ORDER BY id DESC',
-            (status_filtro,)
-        )
-    else:
-        cursor.execute('SELECT * FROM ordens ORDER BY id DESC')
+        from order_services import normalizar_status
 
-    ordens = cursor.fetchall()
-    conn.close()
+        status_filtro = normalizar_status(status_filtro)
+        if status_filtro not in ALLOWED_STATUSES:
+            return jsonify({
+                'erro': f'Status invalido. Use: {list(ALLOWED_STATUSES)}'
+            }), 400
 
-    return jsonify([dict(o) for o in ordens])
+    order_by = priority_order_sql('o') if ordenar == 'prioridade' else 'o.id DESC'
+    return jsonify(list_orders(status_filtro=status_filtro, order_by=order_by))
+
+
+@app.route('/ordens/prioridade', methods=['GET'])
+def listar_ordens_por_prioridade():
+    return jsonify(list_orders(order_by=priority_order_sql('o')))
 
 
 @app.route('/ordens/<int:ordem_id>', methods=['GET'])
 def buscar_ordem(ordem_id):
-    """Busca uma ordem pelo ID. Retorna 404 se nao encontrada."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM ordens WHERE id = ?', (ordem_id,))
-    ordem = cursor.fetchone()
-    conn.close()
-
+    ordem = get_order_by_id(ordem_id)
     if ordem is None:
         return jsonify({'erro': f'Ordem {ordem_id} nao encontrada.'}), 404
-
-    return jsonify(dict(ordem)), 200
+    return jsonify(ordem), 200
 
 
 @app.route('/ordens', methods=['POST'])
 @requer_autenticacao
+@requer_roles('admin')
 def criar_ordem():
-    """Cria nova ordem. Requer X-API-Key. Sanitiza entradas."""
-    dados = request.get_json(silent=True)
-
-    if not dados:
-        return jsonify({'erro': 'Body ausente ou invalido.'}), 400
-
-    produto = html.escape(str(dados.get('produto', '')).strip())
-    if not produto:
-        return jsonify({'erro': 'Campo produto e obrigatorio.'}), 400
-
-    if len(produto) > 200:
-        return jsonify({'erro': 'Produto: max 200 caracteres.'}), 400
-
-    quantidade = dados.get('quantidade')
-    if quantidade is None:
-        return jsonify({'erro': 'Campo quantidade e obrigatorio.'}), 400
-
     try:
-        quantidade = int(quantidade)
-        if quantidade <= 0 or quantidade > 999999:
-            raise ValueError()
-    except (ValueError, TypeError):
-        return jsonify({
-            'erro': 'quantidade: inteiro entre 1 e 999999.'
-        }), 400
-
-    status_validos = ['Pendente', 'Em andamento', 'Concluida']
-    status = dados.get('status', 'Pendente')
-    if status not in status_validos:
-        return jsonify({
-            'erro': f'Status invalido. Use: {status_validos}'
-        }), 400
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        'INSERT INTO ordens (produto, quantidade, status) VALUES (?, ?, ?)',
-        (produto, quantidade, status)
-    )
-    conn.commit()
-    novo_id = cursor.lastrowid
-    conn.close()
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM ordens WHERE id = ?', (novo_id,))
-    nova_ordem = cursor.fetchone()
-    conn.close()
-
-    return jsonify(dict(nova_ordem)), 201
+        return jsonify(create_order(request.get_json(silent=True))), 201
+    except ServiceError as exc:
+        return jsonify({'erro': exc.message}), exc.status_code
 
 
 @app.route('/ordens/<int:ordem_id>', methods=['PUT'])
 @requer_autenticacao
+@requer_roles('admin', 'operador')
 def atualizar_ordem(ordem_id):
-    """Atualiza status de uma ordem. Requer X-API-Key."""
-    dados = request.get_json(silent=True)
-
-    if not dados:
-        return jsonify({'erro': 'Body ausente ou invalido.'}), 400
-
-    status_validos = ['Pendente', 'Em andamento', 'Concluida']
-    novo_status = dados.get('status', '').strip()
-
-    if not novo_status:
-        return jsonify({'erro': 'Campo status e obrigatorio.'}), 400
-
-    if novo_status not in status_validos:
-        return jsonify({
-            'erro': f'Status invalido. Use: {status_validos}'
-        }), 400
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id FROM ordens WHERE id = ?', (ordem_id,))
-    if cursor.fetchone() is None:
-        conn.close()
-        return jsonify({'erro': f'Ordem {ordem_id} nao encontrada.'}), 404
-
-    cursor.execute(
-        'UPDATE ordens SET status = ? WHERE id = ?',
-        (novo_status, ordem_id)
-    )
-    conn.commit()
-    conn.close()
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM ordens WHERE id = ?', (ordem_id,))
-    ordem_atualizada = cursor.fetchone()
-    conn.close()
-
-    return jsonify(dict(ordem_atualizada)), 200
+    try:
+        return jsonify(update_order_status(ordem_id, request.get_json(silent=True))), 200
+    except ServiceError as exc:
+        return jsonify({'erro': exc.message}), exc.status_code
 
 
 @app.route('/ordens/<int:ordem_id>', methods=['DELETE'])
 @requer_autenticacao
+@requer_roles('admin')
 def remover_ordem(ordem_id):
-    """Remove ordem pelo ID. Requer X-API-Key."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, produto FROM ordens WHERE id = ?', (ordem_id,))
-    ordem = cursor.fetchone()
+    try:
+        return jsonify(delete_order(ordem_id)), 200
+    except ServiceError as exc:
+        return jsonify({'erro': exc.message}), exc.status_code
 
-    if ordem is None:
-        conn.close()
-        return jsonify({'erro': f'Ordem {ordem_id} nao encontrada.'}), 404
 
-    nome_produto = ordem['produto']
-    cursor.execute('DELETE FROM ordens WHERE id = ?', (ordem_id,))
+@app.route('/logs', methods=['GET'])
+@requer_autenticacao
+def listar_logs():
+    try:
+        limit = int(request.args.get('limit', 100))
+    except ValueError:
+        return jsonify({'erro': 'limit deve ser inteiro.'}), 400
+    limit = max(1, min(limit, 500))
+    return jsonify(load_logs(limit=limit)), 200
 
-    cursor.execute('SELECT COUNT(*) AS total FROM ordens')
-    total_restante = cursor.fetchone()['total']
-    if total_restante == 0:
-        cursor.execute("DELETE FROM sqlite_sequence WHERE name = 'ordens'")
 
-    conn.commit()
-    conn.close()
+@app.route('/analytics/previsoes', methods=['GET'])
+@requer_autenticacao
+def analytics_previsoes():
+    return jsonify(forecast_overview()), 200
 
-    return jsonify({
-        'mensagem': f'Ordem {ordem_id} ({nome_produto}) removida.',
-        'id_removido': ordem_id
-    }), 200
+
+@app.route('/analytics/gargalos', methods=['GET'])
+@requer_autenticacao
+def analytics_gargalos():
+    return jsonify(detect_bottlenecks()), 200
+
+
+@app.route('/ordens/exportar', methods=['GET'])
+@requer_autenticacao
+def exportar_ordens():
+    formato = request.args.get('formato', '').strip().lower()
+    if formato not in {'pdf', 'xlsx'}:
+        return jsonify({'erro': 'Formato invalido. Use pdf ou xlsx.'}), 400
+
+    ordens = list_orders(order_by=priority_order_sql('o'))
+    try:
+        if formato == 'xlsx':
+            buffer = export_orders_xlsx(ordens)
+            return send_file(
+                buffer,
+                as_attachment=True,
+                download_name='ordens_producao.xlsx',
+                mimetype=(
+                    'application/vnd.openxmlformats-officedocument.'
+                    'spreadsheetml.sheet'
+                ),
+            )
+
+        buffer = export_orders_pdf(ordens)
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name='ordens_producao.pdf',
+            mimetype='application/pdf',
+        )
+    except ServiceError as exc:
+        return jsonify({'erro': exc.message}), exc.status_code
 
 
 @app.route('/fabrica/<nome_fabrica>')

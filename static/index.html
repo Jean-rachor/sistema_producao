@@ -10,15 +10,110 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="enhanced.css">
 </head>
 <body>
     <div id="mensagem" class="mensagem oculto"></div>
 
-    <div class="page-chassis">
+    <section id="auth-screen" class="auth-screen">
+        <div class="auth-shell">
+            <div class="auth-copy panel">
+                <p class="eyebrow">Acesso operacional protegido</p>
+                <div class="hero-brand">
+                    <span class="brand-mark">OP</span>
+                    <span class="brand-line"></span>
+                    <p class="brand-caption">Painel de producao com seguranca, auditoria e monitoramento vivo.</p>
+                </div>
+                <h1>Trabalho de interconexao</h1>
+                <p class="hero-description">
+                    Entre com um perfil para liberar cadastro, acompanhamento, exportacao
+                    e analise operacional das ordens.
+                </p>
+
+                <div class="login-helper-grid">
+                    <article class="signal-card">
+                        <span class="signal-label">Admin</span>
+                        <strong>Controle total</strong>
+                        <p>Cria, atualiza e remove ordens. Tambem exporta e consulta logs.</p>
+                    </article>
+
+                    <article class="signal-card">
+                        <span class="signal-label">Operador</span>
+                        <strong>Execucao</strong>
+                        <p>Atualiza andamento das ordens e acompanha o fluxo de producao.</p>
+                    </article>
+
+                    <article class="signal-card">
+                        <span class="signal-label">Visualizador</span>
+                        <strong>Consulta</strong>
+                        <p>Acompanha indicadores, previsoes, gargalos e historico recente.</p>
+                    </article>
+                </div>
+            </div>
+
+            <form id="login-form" class="auth-panel panel" onsubmit="event.preventDefault(); realizarLogin();">
+                <div class="section-heading compact">
+                    <p class="section-kicker">Login</p>
+                    <h2>Acessar painel</h2>
+                    <p>Use um usuario cadastrado para liberar a operacao.</p>
+                </div>
+
+                <div class="form-grid auth-grid">
+                    <div class="field field-wide">
+                        <label for="login-username">Usuario</label>
+                        <input type="text" id="login-username" placeholder="Ex: admin" autocomplete="username" required>
+                    </div>
+
+                    <div class="field field-wide">
+                        <label for="login-password">Senha</label>
+                        <input type="password" id="login-password" placeholder="Sua senha" autocomplete="current-password" required>
+                    </div>
+
+                    <div class="field field-wide">
+                        <button type="submit" id="btn-login" class="btn btn-primary">
+                            <i class="fas fa-right-to-bracket"></i>
+                            Entrar no sistema
+                        </button>
+                    </div>
+                </div>
+
+                <div class="auth-accounts">
+                    <p class="auth-accounts-title">Perfis padrao de teste</p>
+                    <div class="auth-account-list">
+                        <button type="button" class="account-chip" onclick="preencherLogin('admin', 'admin123')">admin / admin123</button>
+                        <button type="button" class="account-chip" onclick="preencherLogin('operador', 'operador123')">operador / operador123</button>
+                        <button type="button" class="account-chip" onclick="preencherLogin('visualizador', 'visualizador123')">visualizador / visualizador123</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <div id="app-root" class="page-chassis oculto">
         <div class="ambient ambient-left" aria-hidden="true"></div>
         <div class="ambient ambient-right" aria-hidden="true"></div>
 
         <main class="app-shell">
+            <header class="topbar panel">
+                <div class="topbar-brand">
+                    <p class="eyebrow">Centro de controle</p>
+                    <h2>Painel de ordens de producao</h2>
+                </div>
+
+                <div class="topbar-session">
+                    <div class="session-card">
+                        <span class="session-kicker">Usuario</span>
+                        <strong id="session-user">-</strong>
+                        <span id="session-role" class="role-badge">-</span>
+                    </div>
+
+                    <button type="button" class="btn btn-secondary logout-btn" onclick="logout()">
+                        <i class="fas fa-arrow-right-from-bracket"></i>
+                        Logout
+                    </button>
+                </div>
+            </header>
+
             <section class="hero-panel panel">
                 <div class="hero-copy">
                     <p class="eyebrow">Painel industrial de alta visibilidade</p>
@@ -37,30 +132,14 @@
 
                     <div class="hero-actions">
                         <span id="api-status" class="status-chip status-loading">Sincronizando painel...</span>
+                        <span id="arrival-status" class="arrival-chip arrival-init">
+                            <i class="fas fa-bell"></i>
+                            Monitorando novas ordens
+                        </span>
                         <span class="hero-note">
                             <i class="fas fa-bolt"></i>
-                            Visual inspirado em automacao e engenharia industrial
+                            Login, exportacao, auditoria e previsao de producao
                         </span>
-                    </div>
-
-                    <div class="hero-signals" aria-label="Recursos do painel">
-                        <article class="signal-card">
-                            <span class="signal-label">Entrada</span>
-                            <strong>Cadastro rapido</strong>
-                            <p>Abre ordem nova em poucos campos, sem enrolacao no fluxo.</p>
-                        </article>
-
-                        <article class="signal-card">
-                            <span class="signal-label">Leitura</span>
-                            <strong>Monitoramento vivo</strong>
-                            <p>Status, contadores e ultima leitura sempre visiveis no topo.</p>
-                        </article>
-
-                        <article class="signal-card">
-                            <span class="signal-label">Busca</span>
-                            <strong>Filtro operacional</strong>
-                            <p>Localize ordens por nome ou status direto no painel principal.</p>
-                        </article>
                     </div>
                 </div>
 
@@ -75,6 +154,12 @@
                         <span class="summary-label">Fluxo em linha</span>
                         <strong><span id="pipeline-count">0</span> ordens ativas</strong>
                         <p>Pendencias e operacoes em andamento sob monitoramento.</p>
+                    </article>
+
+                    <article class="summary-card">
+                        <span class="summary-label">Prazo em risco</span>
+                        <strong><span id="risk-count">0</span> alertas</strong>
+                        <p>Ordens com previsao de entrega pressionada pelo prazo previsto.</p>
                     </article>
                 </div>
             </section>
@@ -105,16 +190,18 @@
                 </article>
             </section>
 
-            <section class="workspace-grid">
+            <section class="workspace-grid workspace-grid-xl">
                 <section class="panel control-panel">
                     <div class="section-heading">
                         <p class="section-kicker">Entrada de ordem</p>
                         <h2>Nova ordem de producao</h2>
-                        <p>Cadastre um item, defina a quantidade e inicie o fluxo operacional.</p>
+                        <p>Cadastre item, valor, prioridade e dependencia sem poluir a operacao.</p>
                     </div>
 
+                    <div id="permission-note" class="permission-note oculto"></div>
+
                     <form id="form-ordem" onsubmit="event.preventDefault(); criarOrdem();">
-                        <div class="form-grid">
+                        <div class="form-grid enhanced-form-grid">
                             <div class="field field-wide">
                                 <label for="produto">Produto</label>
                                 <input type="text" id="produto" placeholder="Ex: Motor trifasico linha M" required>
@@ -122,17 +209,66 @@
 
                             <div class="field">
                                 <label for="quantidade">Quantidade</label>
-                                <input type="number" id="quantidade" min="1" placeholder="Ex: 120" required>
+                                <div class="quantity-control">
+                                    <button type="button" class="quantity-btn" onclick="ajustarQuantidade(-1)">-</button>
+                                    <input type="number" id="quantidade" min="1" value="1" required oninput="atualizarResumoFinanceiro()">
+                                    <button type="button" class="quantity-btn" onclick="ajustarQuantidade(1)">+</button>
+                                </div>
                             </div>
 
                             <div class="field">
-                                <label for="status-novo">Status inicial</label>
+                                <label for="valor-unitario">Valor unitario (R$)</label>
+                                <div class="currency-input">
+                                    <span>R$</span>
+                                    <input type="number" id="valor-unitario" min="0" step="0.01" value="0.00" oninput="atualizarResumoFinanceiro()">
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="data-prevista">Data prevista</label>
+                                <input type="date" id="data-prevista">
+                            </div>
+
+                            <div class="field">
+                                <label for="ordem-pai">Ordem pai</label>
                                 <div class="select-shell">
-                                    <select id="status-novo">
-                                        <option value="Pendente">Pendente</option>
-                                        <option value="Em andamento">Em andamento</option>
-                                        <option value="Concluida">Concluida</option>
+                                    <select id="ordem-pai">
+                                        <option value="">Sem dependencia</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div class="field field-wide">
+                                <label>Status inicial</label>
+                                <input type="hidden" id="status-novo" value="Pendente">
+                                <div class="choice-group" id="status-choice-group">
+                                    <button type="button" class="choice-chip choice-chip-active" data-field="status-novo" data-value="Pendente" onclick="selecionarChip(event)">Pendente</button>
+                                    <button type="button" class="choice-chip" data-field="status-novo" data-value="Em andamento" onclick="selecionarChip(event)">Em andamento</button>
+                                    <button type="button" class="choice-chip" data-field="status-novo" data-value="Concluida" onclick="selecionarChip(event)">Concluida</button>
+                                </div>
+                            </div>
+
+                            <div class="field field-wide">
+                                <label>Prioridade</label>
+                                <input type="hidden" id="prioridade-nova" value="Media">
+                                <div class="choice-group" id="priority-choice-group">
+                                    <button type="button" class="choice-chip priority-chip priority-media choice-chip-active" data-field="prioridade-nova" data-value="Media" onclick="selecionarChip(event)">Media</button>
+                                    <button type="button" class="choice-chip priority-chip priority-alta" data-field="prioridade-nova" data-value="Alta" onclick="selecionarChip(event)">Alta</button>
+                                    <button type="button" class="choice-chip priority-chip priority-baixa" data-field="prioridade-nova" data-value="Baixa" onclick="selecionarChip(event)">Baixa</button>
+                                </div>
+                            </div>
+
+                            <div class="field field-wide">
+                                <div class="financial-panel">
+                                    <div class="financial-total">
+                                        <span class="financial-label">Total estimado</span>
+                                        <strong id="financial-total-brl">R$ 0,00</strong>
+                                        <p>Quantidade x valor unitario calculado em tempo real.</p>
+                                    </div>
+
+                                    <div id="currency-grid" class="currency-grid">
+                                        <!-- Conversoes via JavaScript -->
+                                    </div>
                                 </div>
                             </div>
 
@@ -144,62 +280,42 @@
                             </div>
                         </div>
                     </form>
-
-                    <div class="control-strip" aria-label="Checklist de operacao">
-                        <article class="strip-card">
-                            <span class="strip-index">01</span>
-                            <div>
-                                <strong>Registrar item</strong>
-                                <p>Descreva o produto de forma objetiva para facilitar a triagem.</p>
-                            </div>
-                        </article>
-
-                        <article class="strip-card">
-                            <span class="strip-index">02</span>
-                            <div>
-                                <strong>Definir volume</strong>
-                                <p>Informe a quantidade para o painel refletir a carga da linha.</p>
-                            </div>
-                        </article>
-
-                        <article class="strip-card">
-                            <span class="strip-index">03</span>
-                            <div>
-                                <strong>Liberar fluxo</strong>
-                                <p>Escolha o status inicial e acompanhe a ordem na tabela ao lado.</p>
-                            </div>
-                        </article>
-                    </div>
-
-                    <div class="control-foot">
-                        <span><i class="fas fa-shield-halved"></i> Operacao segura e objetiva</span>
-                        <span><i class="fas fa-wave-square"></i> Atualizacao visual em tempo real</span>
-                    </div>
                 </section>
 
                 <section class="panel table-panel">
-                    <div class="panel-toolbar">
+                    <div class="panel-toolbar panel-toolbar-stack">
                         <div class="section-heading compact">
                             <p class="section-kicker">Monitoramento</p>
                             <h2>Ordens cadastradas</h2>
-                            <p>Visual de acompanhamento com foco em leitura rapida de status.</p>
+                            <p>Busca local, filtro por status, ordenacao e exportacao em um so bloco.</p>
+                        </div>
+
+                        <div class="toolbar-actions">
+                            <button type="button" id="sort-priority-btn" class="btn btn-secondary" onclick="alternarOrdenacao()">
+                                <i class="fas fa-arrow-down-wide-short"></i>
+                                Ordenar por prioridade
+                            </button>
+
+                            <button type="button" id="btn-export-pdf" class="btn btn-secondary" onclick="exportarOrdens('pdf')">
+                                <i class="fas fa-file-pdf"></i>
+                                Exportar PDF
+                            </button>
+
+                            <button type="button" id="btn-export-xlsx" class="btn btn-secondary" onclick="exportarOrdens('xlsx')">
+                                <i class="fas fa-file-excel"></i>
+                                Exportar XLSX
+                            </button>
                         </div>
                     </div>
 
                     <div class="monitor-stack">
-                        <div class="monitor-tools">
+                        <div class="monitor-tools monitor-tools-wide">
                             <label class="search-shell" for="busca-ordem">
                                 <i class="fas fa-magnifying-glass"></i>
-                                <input
-                                    type="search"
-                                    id="busca-ordem"
-                                    class="search-input"
-                                    placeholder="Buscar por produto ou ID"
-                                    oninput="filtrarOrdensLocais()"
-                                    autocomplete="off">
+                                <input type="search" id="busca-ordem" class="search-input" placeholder="Buscar por produto, ID ou prioridade" oninput="filtrarOrdensLocais()" autocomplete="off">
                             </label>
 
-                            <button class="btn btn-secondary monitor-refresh" onclick="carregarOrdens()">
+                            <button class="btn btn-secondary monitor-refresh" onclick="carregarDashboard()">
                                 <i class="fas fa-rotate"></i>
                                 Atualizar painel
                             </button>
@@ -219,18 +335,9 @@
                                 </p>
 
                                 <div class="legend-row" aria-label="Legenda de status">
-                                    <span class="legend-item">
-                                        <span class="legend-dot legend-warning"></span>
-                                        Pendente
-                                    </span>
-                                    <span class="legend-item">
-                                        <span class="legend-dot legend-primary"></span>
-                                        Em andamento
-                                    </span>
-                                    <span class="legend-item">
-                                        <span class="legend-dot legend-success"></span>
-                                        Concluida
-                                    </span>
+                                    <span class="legend-item"><span class="legend-dot legend-warning"></span>Pendente</span>
+                                    <span class="legend-item"><span class="legend-dot legend-primary"></span>Em andamento</span>
+                                    <span class="legend-item"><span class="legend-dot legend-success"></span>Concluida</span>
                                 </div>
                             </div>
                         </div>
@@ -247,21 +354,72 @@
                     </div>
 
                     <div class="table-shell">
-                        <table id="tabela-ordens" class="tabela">
-                            <caption class="sr-only">Tabela de ordens de producao com filtros e busca</caption>
+                        <table id="tabela-ordens" class="tabela tabela-rich">
+                            <caption class="sr-only">Tabela de ordens de producao</caption>
                             <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Produto</th>
-                                    <th>Quantidade</th>
+                                    <th>Prioridade</th>
+                                    <th>Quantidade e valor</th>
+                                    <th>Prazo</th>
+                                    <th>Tempo previsto</th>
                                     <th>Status</th>
                                     <th>Acoes</th>
                                 </tr>
                             </thead>
-                            <tbody id="corpo-tabela">
-                                <!-- Linhas geradas via JavaScript -->
-                            </tbody>
+                            <tbody id="corpo-tabela"></tbody>
                         </table>
+                    </div>
+                </section>
+            </section>
+
+            <section class="insights-grid">
+                <section class="panel audit-panel">
+                    <div class="section-heading compact">
+                        <p class="section-kicker">Auditoria</p>
+                        <h2>Logs recentes</h2>
+                        <p>Rastro de criacao, atualizacao e remocao das ordens.</p>
+                    </div>
+
+                    <div class="audit-table-shell">
+                        <table class="audit-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Acao</th>
+                                    <th>Ordem</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="panel analytics-panel">
+                    <div class="section-heading compact">
+                        <p class="section-kicker">Analise</p>
+                        <h2>Previsoes e gargalos</h2>
+                        <p>Leitura rapida do historico por produto e dos pontos de atraso.</p>
+                    </div>
+
+                    <div class="analytics-stack">
+                        <div class="analytics-block">
+                            <div class="analytics-header">
+                                <strong>Tempo medio por produto</strong>
+                                <span id="forecast-global" class="analytics-pill">-</span>
+                            </div>
+                            <div id="forecast-list" class="analytics-list"></div>
+                        </div>
+
+                        <div class="analytics-block">
+                            <div class="analytics-header">
+                                <strong>Produtos com gargalo</strong>
+                                <span class="analytics-pill analytics-pill-danger">Monitorando</span>
+                            </div>
+                            <div id="bottleneck-list" class="analytics-list"></div>
+                        </div>
                     </div>
                 </section>
             </section>
