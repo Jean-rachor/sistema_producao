@@ -3,93 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Ordens de Produção</title>
-    <!-- Google Fonts -->
+    <meta name="theme-color" content="#0055b8">
+    <title>Sistema de Ordens de Producao</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="mensagem" class="mensagem oculto"></div>
-    
-    <div class="glass-background"></div>
 
-    <main class="container">
-        <header class="app-header glass-panel">
-            <div class="header-content">
-                <div class="title-area">
-                    <i class="fas fa-industry logo-icon"></i>
-                    <h1>Gestão de Produção</h1>
-                </div>
-                <div class="status-area">
-                    <span id="api-status" class="badge">Conectando...</span>
-                </div>
-            </div>
-        </header>
+    <div class="page-chassis">
+        <div class="ambient ambient-left" aria-hidden="true"></div>
+        <div class="ambient ambient-right" aria-hidden="true"></div>
 
-        <section class="form-section glass-panel">
-            <h2><i class="fas fa-plus-circle"></i> Nova Ordem de Produção</h2>
-            <form id="form-ordem" onsubmit="event.preventDefault(); criarOrdem();">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="produto">Produto</label>
-                        <input type="text" id="produto" placeholder="Nome do produto" required>
+        <main class="app-shell">
+            <section class="hero-panel panel">
+                <div class="hero-copy">
+                    <p class="eyebrow">Painel industrial de alta visibilidade</p>
+
+                    <div class="hero-brand">
+                        <span class="brand-mark">OP</span>
+                        <span class="brand-line"></span>
+                        <p class="brand-caption">Controle tecnico para operacao de producao</p>
                     </div>
-                    <div class="form-group">
-                        <label for="quantidade">Quantidade</label>
-                        <input type="number" id="quantidade" min="1" placeholder="Ex: 100" required>
+
+                    <h1>Trabalho de interconexao</h1>
+                    <p class="hero-description">
+                        Registro, leitura e acompanhamento de ordens em um painel mais util para
+                        operacao, supervisao e rotina de fabrica.
+                    </p>
+
+                    <div class="hero-actions">
+                        <span id="api-status" class="status-chip status-loading">Sincronizando painel...</span>
+                        <span class="hero-note">
+                            <i class="fas fa-bolt"></i>
+                            Visual inspirado em automacao e engenharia industrial
+                        </span>
                     </div>
-                    <div class="form-group">
-                        <label for="status-novo">Status Inicial</label>
-                        <div class="select-wrapper">
-                            <select id="status-novo">
-                                <option value="Pendente">Pendente</option>
-                                <option value="Em andamento">Em andamento</option>
-                                <option value="Concluida">Concluída</option>
-                            </select>
+
+                    <div class="hero-signals" aria-label="Recursos do painel">
+                        <article class="signal-card">
+                            <span class="signal-label">Entrada</span>
+                            <strong>Cadastro rapido</strong>
+                            <p>Abre ordem nova em poucos campos, sem enrolacao no fluxo.</p>
+                        </article>
+
+                        <article class="signal-card">
+                            <span class="signal-label">Leitura</span>
+                            <strong>Monitoramento vivo</strong>
+                            <p>Status, contadores e ultima leitura sempre visiveis no topo.</p>
+                        </article>
+
+                        <article class="signal-card">
+                            <span class="signal-label">Busca</span>
+                            <strong>Filtro operacional</strong>
+                            <p>Localize ordens por nome ou status direto no painel principal.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="hero-summary">
+                    <article class="summary-card">
+                        <span class="summary-label">Ultima leitura</span>
+                        <strong id="last-sync">Aguardando dados</strong>
+                        <p>Atualizacao do painel a cada interacao com a API.</p>
+                    </article>
+
+                    <article class="summary-card summary-card-accent">
+                        <span class="summary-label">Fluxo em linha</span>
+                        <strong><span id="pipeline-count">0</span> ordens ativas</strong>
+                        <p>Pendencias e operacoes em andamento sob monitoramento.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="metrics-grid" aria-label="Indicadores operacionais">
+                <article class="metric-card">
+                    <span class="metric-kicker">Carteira total</span>
+                    <strong id="metric-total" class="metric-value">0</strong>
+                    <p>Ordens registradas no sistema.</p>
+                </article>
+
+                <article class="metric-card">
+                    <span class="metric-kicker">Fila inicial</span>
+                    <strong id="metric-pendente" class="metric-value">0</strong>
+                    <p>Ordens aguardando entrada na linha.</p>
+                </article>
+
+                <article class="metric-card">
+                    <span class="metric-kicker">Em producao</span>
+                    <strong id="metric-andamento" class="metric-value">0</strong>
+                    <p>Ordens em execucao no momento.</p>
+                </article>
+
+                <article class="metric-card">
+                    <span class="metric-kicker">Fechadas</span>
+                    <strong id="metric-concluida" class="metric-value">0</strong>
+                    <p>Ordens concluidas e liberadas.</p>
+                </article>
+            </section>
+
+            <section class="workspace-grid">
+                <section class="panel control-panel">
+                    <div class="section-heading">
+                        <p class="section-kicker">Entrada de ordem</p>
+                        <h2>Nova ordem de producao</h2>
+                        <p>Cadastre um item, defina a quantidade e inicie o fluxo operacional.</p>
+                    </div>
+
+                    <form id="form-ordem" onsubmit="event.preventDefault(); criarOrdem();">
+                        <div class="form-grid">
+                            <div class="field field-wide">
+                                <label for="produto">Produto</label>
+                                <input type="text" id="produto" placeholder="Ex: Motor trifasico linha M" required>
+                            </div>
+
+                            <div class="field">
+                                <label for="quantidade">Quantidade</label>
+                                <input type="number" id="quantidade" min="1" placeholder="Ex: 120" required>
+                            </div>
+
+                            <div class="field">
+                                <label for="status-novo">Status inicial</label>
+                                <div class="select-shell">
+                                    <select id="status-novo">
+                                        <option value="Pendente">Pendente</option>
+                                        <option value="Em andamento">Em andamento</option>
+                                        <option value="Concluida">Concluida</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="field field-wide">
+                                <button type="submit" id="btn-cadastrar" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i>
+                                    Registrar ordem
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="control-strip" aria-label="Checklist de operacao">
+                        <article class="strip-card">
+                            <span class="strip-index">01</span>
+                            <div>
+                                <strong>Registrar item</strong>
+                                <p>Descreva o produto de forma objetiva para facilitar a triagem.</p>
+                            </div>
+                        </article>
+
+                        <article class="strip-card">
+                            <span class="strip-index">02</span>
+                            <div>
+                                <strong>Definir volume</strong>
+                                <p>Informe a quantidade para o painel refletir a carga da linha.</p>
+                            </div>
+                        </article>
+
+                        <article class="strip-card">
+                            <span class="strip-index">03</span>
+                            <div>
+                                <strong>Liberar fluxo</strong>
+                                <p>Escolha o status inicial e acompanhe a ordem na tabela ao lado.</p>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="control-foot">
+                        <span><i class="fas fa-shield-halved"></i> Operacao segura e objetiva</span>
+                        <span><i class="fas fa-wave-square"></i> Atualizacao visual em tempo real</span>
+                    </div>
+                </section>
+
+                <section class="panel table-panel">
+                    <div class="panel-toolbar">
+                        <div class="section-heading compact">
+                            <p class="section-kicker">Monitoramento</p>
+                            <h2>Ordens cadastradas</h2>
+                            <p>Visual de acompanhamento com foco em leitura rapida de status.</p>
                         </div>
                     </div>
-                    <div class="form-group form-actions">
-                        <button type="submit" id="btn-cadastrar" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Cadastrar Ordem
+
+                    <div class="monitor-stack">
+                        <div class="monitor-tools">
+                            <label class="search-shell" for="busca-ordem">
+                                <i class="fas fa-magnifying-glass"></i>
+                                <input
+                                    type="search"
+                                    id="busca-ordem"
+                                    class="search-input"
+                                    placeholder="Buscar por produto ou ID"
+                                    oninput="filtrarOrdensLocais()"
+                                    autocomplete="off">
+                            </label>
+
+                            <button class="btn btn-secondary monitor-refresh" onclick="carregarOrdens()">
+                                <i class="fas fa-rotate"></i>
+                                Atualizar painel
+                            </button>
+                        </div>
+
+                        <div class="monitor-meta">
+                            <div class="filter-strip" role="group" aria-label="Filtrar ordens por status">
+                                <button type="button" class="filter-chip filter-chip-active" data-filter="" onclick="definirFiltroStatus('')">Todas</button>
+                                <button type="button" class="filter-chip" data-filter="Pendente" onclick="definirFiltroStatus('Pendente')">Pendente</button>
+                                <button type="button" class="filter-chip" data-filter="Em andamento" onclick="definirFiltroStatus('Em andamento')">Em andamento</button>
+                                <button type="button" class="filter-chip" data-filter="Concluida" onclick="definirFiltroStatus('Concluida')">Concluida</button>
+                            </div>
+
+                            <div class="monitor-info">
+                                <p class="results-line">
+                                    <span id="results-count">0</span> ordens visiveis no painel
+                                </p>
+
+                                <div class="legend-row" aria-label="Legenda de status">
+                                    <span class="legend-item">
+                                        <span class="legend-dot legend-warning"></span>
+                                        Pendente
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="legend-dot legend-primary"></span>
+                                        Em andamento
+                                    </span>
+                                    <span class="legend-item">
+                                        <span class="legend-dot legend-success"></span>
+                                        Concluida
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="sem-dados" class="empty-state oculto">
+                        <i class="fas fa-box-open"></i>
+                        <h3 id="empty-title">Nenhuma ordem cadastrada</h3>
+                        <p id="empty-text">Assim que uma ordem entrar no sistema, ela aparece aqui com o status operacional.</p>
+                        <button type="button" id="empty-action" class="btn btn-secondary empty-action" onclick="document.getElementById('produto').focus()">
+                            <i class="fas fa-arrow-left"></i>
+                            Criar primeira ordem
                         </button>
                     </div>
-                </div>
-            </form>
-        </section>
 
-        <section class="list-section glass-panel">
-            <div class="section-header">
-                <h2><i class="fas fa-clipboard-list"></i> Ordens Cadastradas</h2>
-                <button class="btn-icon" onclick="carregarOrdens()"><i class="fas fa-sync-alt"></i> Atualizar</button>
-            </div>
-            
-            <div id="sem-dados" class="empty-state oculto">
-                <i class="fas fa-box-open"></i>
-                <p>Nenhuma ordem de produção cadastrada no momento.</p>
-            </div>
-
-            <div class="table-container">
-                <table id="tabela-ordens" class="tabela">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Produto</th>
-                            <th>Quantidade</th>
-                            <th>Status</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="corpo-tabela">
-                        <!-- Linhas geradas via JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </main>
+                    <div class="table-shell">
+                        <table id="tabela-ordens" class="tabela">
+                            <caption class="sr-only">Tabela de ordens de producao com filtros e busca</caption>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Produto</th>
+                                    <th>Quantidade</th>
+                                    <th>Status</th>
+                                    <th>Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpo-tabela">
+                                <!-- Linhas geradas via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
 
     <script src="main.js"></script>
 </body>
