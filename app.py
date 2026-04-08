@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from werkzeug.security import check_password_hash
 
-from auth_utils import gerar_token_jwt, requer_autenticacao, requer_roles
+from auth_utils import gerar_token_jwt, normalizar_role, requer_autenticacao, requer_roles
 from database import get_connection, init_db
 from order_services import (
     ALLOWED_STATUSES,
@@ -90,11 +90,13 @@ def login():
     if usuario is None or not check_password_hash(usuario['senha_hash'], password):
         return jsonify({'erro': 'Credenciais invalidas.'}), 401
 
+    role = normalizar_role(usuario['role'])
+
     return jsonify({
-        'token': gerar_token_jwt(usuario['username'], usuario['role']),
+        'token': gerar_token_jwt(usuario['username'], role),
         'usuario': {
             'username': usuario['username'],
-            'role': usuario['role'],
+            'role': role,
         }
     }), 200
 
@@ -146,7 +148,7 @@ def buscar_ordem(ordem_id):
 
 @app.route('/ordens', methods=['POST'])
 @requer_autenticacao
-@requer_roles('admin')
+@requer_roles('admin', 'usuario')
 def criar_ordem():
     try:
         return jsonify(create_order(request.get_json(silent=True))), 201
@@ -156,7 +158,7 @@ def criar_ordem():
 
 @app.route('/ordens/<int:ordem_id>', methods=['PUT'])
 @requer_autenticacao
-@requer_roles('admin', 'operador')
+@requer_roles('admin')
 def atualizar_ordem(ordem_id):
     try:
         return jsonify(update_order_status(ordem_id, request.get_json(silent=True))), 200
@@ -166,7 +168,7 @@ def atualizar_ordem(ordem_id):
 
 @app.route('/ordens/<int:ordem_id>', methods=['DELETE'])
 @requer_autenticacao
-@requer_roles('admin')
+@requer_roles('admin', 'usuario')
 def remover_ordem(ordem_id):
     try:
         return jsonify(delete_order(ordem_id)), 200
@@ -199,6 +201,7 @@ def analytics_gargalos():
 
 @app.route('/ordens/exportar', methods=['GET'])
 @requer_autenticacao
+@requer_roles('admin')
 def exportar_ordens():
     formato = request.args.get('formato', '').strip().lower()
     if formato not in {'pdf', 'xlsx'}:

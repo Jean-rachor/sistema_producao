@@ -12,6 +12,12 @@ from flask import g, jsonify, request
 API_KEY = os.environ.get('API_KEY', 'senai-cibersistemas-2026-chave-segura')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'jwt-dev-secret-2026')
 JWT_EXP_SECONDS = int(os.environ.get('JWT_EXP_SECONDS', '28800'))
+ROLE_ALIASES = {
+    'admin': 'admin',
+    'operador': 'usuario',
+    'usuario': 'usuario',
+    'visualizador': 'visualizador',
+}
 
 
 def _b64url_encode(data):
@@ -23,8 +29,14 @@ def _b64url_decode(data):
     return base64.urlsafe_b64decode(data + padding)
 
 
+def normalizar_role(role):
+    texto = str(role or '').strip().lower()
+    return ROLE_ALIASES.get(texto, texto or None)
+
+
 def gerar_token_jwt(username, role):
     issued_at = int(time.time())
+    role = normalizar_role(role)
     payload = {
         'sub': username,
         'role': role,
@@ -74,7 +86,7 @@ def validar_token_jwt(token):
 
 def usuario_atual():
     current = getattr(g, 'current_user', None) or {}
-    return current.get('username', 'sistema'), current.get('role', 'sistema')
+    return current.get('username', 'sistema'), normalizar_role(current.get('role', 'sistema'))
 
 
 def requer_autenticacao(f):
@@ -90,7 +102,7 @@ def requer_autenticacao(f):
 
             g.current_user = {
                 'username': payload.get('sub'),
-                'role': payload.get('role'),
+                'role': normalizar_role(payload.get('role')),
                 'auth': 'jwt',
             }
             return f(*args, **kwargs)
@@ -117,11 +129,12 @@ def requer_roles(*roles_permitidos):
         @wraps(f)
         def wrapper(*args, **kwargs):
             current = getattr(g, 'current_user', None) or {}
-            role = current.get('role')
-            if role not in roles_permitidos:
+            role = normalizar_role(current.get('role'))
+            roles_normalizados = [normalizar_role(item) for item in roles_permitidos]
+            if role not in roles_normalizados:
                 return jsonify({
                     'erro': 'Acesso negado.',
-                    'roles_permitidos': list(roles_permitidos),
+                    'roles_permitidos': roles_normalizados,
                 }), 403
             return f(*args, **kwargs)
 

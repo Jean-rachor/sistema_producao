@@ -38,9 +38,9 @@
                     </article>
 
                     <article class="signal-card">
-                        <span class="signal-label">Operador</span>
-                        <strong>Execucao</strong>
-                        <p>Atualiza andamento das ordens e acompanha o fluxo de producao.</p>
+                        <span class="signal-label">Usuario</span>
+                        <strong>Cadastro</strong>
+                        <p>Registra novas ordens e tambem pode excluir itens quando precisar limpar a fila.</p>
                     </article>
 
                     <article class="signal-card">
@@ -81,7 +81,7 @@
                     <p class="auth-accounts-title">Perfis padrao de teste</p>
                     <div class="auth-account-list">
                         <button type="button" class="account-chip" onclick="preencherLogin('admin', 'admin123')">admin / admin123</button>
-                        <button type="button" class="account-chip" onclick="preencherLogin('operador', 'operador123')">operador / operador123</button>
+                        <button type="button" class="account-chip" onclick="preencherLogin('usuario', 'usuario123')">usuario / usuario123</button>
                         <button type="button" class="account-chip" onclick="preencherLogin('visualizador', 'visualizador123')">visualizador / visualizador123</button>
                     </div>
                 </div>
@@ -105,6 +105,7 @@
                         <span class="session-kicker">Usuario</span>
                         <strong id="session-user">-</strong>
                         <span id="session-role" class="role-badge">-</span>
+                        <span id="session-scope" class="session-scope">Carregando permissoes</span>
                     </div>
 
                     <button type="button" class="btn btn-secondary logout-btn" onclick="logout()">
@@ -194,10 +195,11 @@
                 <section class="panel control-panel">
                     <div class="section-heading">
                         <p class="section-kicker">Entrada de ordem</p>
-                        <h2>Nova ordem de producao</h2>
+                        <h2 id="form-title">Nova ordem de producao</h2>
                         <p>Cadastre item, valor, prioridade e dependencia sem poluir a operacao.</p>
                     </div>
 
+                    <div id="form-mode-note" class="form-mode-note">Modo cadastro ativo</div>
                     <div id="permission-note" class="permission-note oculto"></div>
 
                     <form id="form-ordem" onsubmit="event.preventDefault(); criarOrdem();">
@@ -272,10 +274,15 @@
                                 </div>
                             </div>
 
-                            <div class="field field-wide">
+                            <div class="field field-wide form-actions">
                                 <button type="submit" id="btn-cadastrar" class="btn btn-primary">
                                     <i class="fas fa-plus"></i>
                                     Registrar ordem
+                                </button>
+
+                                <button type="button" id="btn-cancelar-edicao" class="btn btn-secondary oculto" onclick="cancelarEdicao()">
+                                    <i class="fas fa-xmark"></i>
+                                    Cancelar edicao
                                 </button>
                             </div>
                         </div>

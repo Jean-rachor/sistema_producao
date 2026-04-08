@@ -44,7 +44,8 @@ const state = {
     statusFilter: '',
     searchTerm: '',
     sortMode: 'recent',
-    ordersLoadedOnce: false
+    ordersLoadedOnce: false,
+    editingOrderId: null
 };
 
 let mensagemTimeoutId = null;
@@ -110,6 +111,7 @@ function limparSessao() {
     state.forecasts = [];
     state.bottlenecks = [];
     state.ordersLoadedOnce = false;
+    state.editingOrderId = null;
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
     sessionStorage.removeItem(SESSION_USER_KEY);
 }
@@ -183,8 +185,28 @@ function mostrarAplicacao() {
 
 function roleClass(role) {
     if (role === 'admin') return 'role-admin';
+    if (role === 'usuario') return 'role-usuario';
     if (role === 'operador') return 'role-operador';
     return 'role-visualizador';
+}
+
+function roleLabel(role) {
+    if (role === 'usuario' || role === 'operador') {
+        return 'usuario';
+    }
+    return role || '-';
+}
+
+function isAdmin() {
+    return state.user && state.user.role === 'admin';
+}
+
+function podeCriarOrdem() {
+    return state.user && (state.user.role === 'admin' || state.user.role === 'usuario' || state.user.role === 'operador');
+}
+
+function podeDefinirStatusInicial() {
+    return isAdmin();
 }
 
 function aplicarSessaoNaUI() {
@@ -195,40 +217,122 @@ function aplicarSessaoNaUI() {
     document.getElementById('session-user').textContent = state.user.username;
 
     const roleBadge = document.getElementById('session-role');
-    roleBadge.textContent = state.user.role;
+    roleBadge.textContent = roleLabel(state.user.role);
     roleBadge.className = `role-badge ${roleClass(state.user.role)}`;
+
+    const sessionScope = document.getElementById('session-scope');
 
     const note = document.getElementById('permission-note');
     const form = document.getElementById('form-ordem');
     const controls = form.querySelectorAll('input, select, button');
-    const podeCriar = state.user.role === 'admin';
+    const exportButtons = [
+        document.getElementById('btn-export-pdf'),
+        document.getElementById('btn-export-xlsx')
+    ];
+    const podeCriar = podeCriarOrdem();
+    const podeEscolherStatus = podeDefinirStatusInicial();
 
     controls.forEach((control) => {
-        if (control.id === 'busca-ordem') {
-            return;
-        }
-        if (control.id === 'btn-cadastrar' || control.matches('.choice-chip') || control.matches('.quantity-btn') || control.matches('#ordem-pai') || control.matches('#produto') || control.matches('#quantidade') || control.matches('#valor-unitario') || control.matches('#data-prevista')) {
+        if (
+            control.id === 'btn-cadastrar' ||
+            control.matches('.quantity-btn') ||
+            control.matches('#ordem-pai') ||
+            control.matches('#produto') ||
+            control.matches('#quantidade') ||
+            control.matches('#valor-unitario') ||
+            control.matches('#data-prevista') ||
+            control.matches('#prioridade-nova')
+        ) {
             control.disabled = !podeCriar;
+        }
+
+        if (control.matches('#status-novo')) {
+            control.disabled = !podeEscolherStatus;
+        }
+
+        if (control.matches('.choice-chip')) {
+            if (control.dataset.field === 'status-novo') {
+                control.disabled = !podeEscolherStatus;
+            } else {
+                control.disabled = !podeCriar;
+            }
         }
     });
 
-    if (podeCriar) {
+    exportButtons.forEach((button) => {
+        if (button) {
+            button.disabled = !isAdmin();
+        }
+    });
+
+    if (!isAdmin() && state.editingOrderId !== null) {
+        state.editingOrderId = null;
+    }
+
+    if (!podeEscolherStatus) {
+        document.getElementById('status-novo').value = 'Pendente';
+        document.querySelectorAll('#status-choice-group .choice-chip').forEach((chip) => {
+            chip.classList.toggle('choice-chip-active', chip.dataset.value === 'Pendente');
+        });
+    }
+
+    if (isAdmin()) {
+        sessionScope.textContent = 'Controle total: cadastrar, editar, excluir e exportar.';
         note.classList.add('oculto');
+        atualizarModoFormulario();
         return;
     }
 
     note.classList.remove('oculto');
-    note.textContent = state.user.role === 'operador'
-        ? 'Perfil operador pode atualizar status, exportar dados e acompanhar logs, mas nao cria nem exclui ordens.'
-        : 'Perfil visualizador acessa somente leitura do painel, sem cadastro, exclusao ou alteracao de status.';
+    if (podeCriar) {
+        sessionScope.textContent = 'Pode cadastrar e excluir ordens. Edicao e exportacao ficam com o admin.';
+        note.innerHTML = `
+            <strong>Permissao atual</strong>
+            Perfil usuario pode cadastrar e excluir ordens. O status inicial fica em Pendente e so o admin pode editar ou exportar.
+        `;
+        atualizarModoFormulario();
+        return;
+    }
+
+    sessionScope.textContent = 'Modo leitura: consulta liberada, alteracoes bloqueadas.';
+    note.innerHTML = `
+        <strong>Permissao atual</strong>
+        Perfil visualizador acessa somente leitura do painel. Cadastro, alteracao, exclusao e exportacao ficam bloqueados.
+    `;
+    atualizarModoFormulario();
 }
 
 function podeAtualizarStatus() {
-    return state.user && (state.user.role === 'admin' || state.user.role === 'operador');
+    return isAdmin();
+}
+
+function podeEditarOrdem() {
+    return isAdmin();
 }
 
 function podeExcluirOrdem() {
-    return state.user && state.user.role === 'admin';
+    return state.user && (state.user.role === 'admin' || state.user.role === 'usuario' || state.user.role === 'operador');
+}
+
+function atualizarModoFormulario() {
+    const title = document.getElementById('form-title');
+    const note = document.getElementById('form-mode-note');
+    const submit = document.getElementById('btn-cadastrar');
+    const cancel = document.getElementById('btn-cancelar-edicao');
+    const editando = Number.isInteger(state.editingOrderId);
+
+    if (editando && isAdmin()) {
+        title.textContent = `Editar ordem #${state.editingOrderId}`;
+        note.textContent = 'Modo edicao ativo';
+        submit.innerHTML = '<i class="fas fa-pen-to-square"></i> Salvar alteracoes';
+        cancel.classList.remove('oculto');
+        return;
+    }
+
+    title.textContent = 'Nova ordem de producao';
+    note.textContent = podeCriarOrdem() ? 'Modo cadastro ativo' : 'Cadastro bloqueado';
+    submit.innerHTML = '<i class="fas fa-plus"></i> Registrar ordem';
+    cancel.classList.add('oculto');
 }
 
 async function realizarLogin() {
@@ -280,9 +384,17 @@ async function restaurarSessao() {
     try {
         state.token = token;
         state.user = JSON.parse(userRaw);
-        const { response } = await apiRequest('/me', { auth: true });
+        const { response, data } = await apiRequest('/me', { auth: true });
         if (!response.ok) {
             throw new Error('Sessao invalida.');
+        }
+
+        if (data?.username && data?.role) {
+            state.user = {
+                username: data.username,
+                role: data.role
+            };
+            sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(state.user));
         }
 
         aplicarSessaoNaUI();
@@ -364,6 +476,9 @@ function preencherSelectPai() {
     const options = ['<option value="">Sem dependencia</option>'];
 
     state.orders.forEach((ordem) => {
+        if (state.editingOrderId === ordem.id) {
+            return;
+        }
         options.push(
             `<option value="${ordem.id}">#${ordem.id} - ${escapeHtml(ordem.produto)} (${ordem.status})</option>`
         );
@@ -491,6 +606,19 @@ function renderizarConversoes(ordem) {
 }
 
 function renderizarAcoes(ordem) {
+    if (podeEditarOrdem()) {
+        return `
+            <button class="btn-icon btn-icon-neutral" onclick="prepararEdicao(${ordem.id})" title="Editar ordem ${ordem.id}">
+                <i class="fas fa-pen-to-square"></i>
+                Editar
+            </button>
+            <button class="btn-icon" onclick="excluirOrdem(${ordem.id})" title="Excluir ordem ${ordem.id}">
+                <i class="fas fa-trash"></i>
+                Excluir
+            </button>
+        `;
+    }
+
     if (podeExcluirOrdem()) {
         return `
             <button class="btn-icon" onclick="excluirOrdem(${ordem.id})" title="Excluir ordem ${ordem.id}">
@@ -499,7 +627,7 @@ function renderizarAcoes(ordem) {
             </button>
         `;
     }
-    return '<span class="action-placeholder">Sem exclusao</span>';
+    return '<span class="action-placeholder">Somente leitura</span>';
 }
 
 function atualizarEstadoVazio(totalBase, totalVisivel) {
@@ -816,6 +944,7 @@ function validarNovaOrdem(payload) {
 }
 
 function resetarFormulario() {
+    state.editingOrderId = null;
     document.getElementById('produto').value = '';
     document.getElementById('quantidade').value = '1';
     document.getElementById('valor-unitario').value = '0.00';
@@ -831,7 +960,48 @@ function resetarFormulario() {
         chip.classList.toggle('choice-chip-active', chip.dataset.value === 'Media');
     });
 
+    preencherSelectPai();
+    atualizarModoFormulario();
     atualizarResumoFinanceiro();
+}
+
+function prepararEdicao(ordemId) {
+    if (!podeEditarOrdem()) {
+        exibirMensagem('Somente admin pode editar ordens.', 'erro');
+        return;
+    }
+
+    const ordem = state.orders.find((item) => item.id === ordemId);
+    if (!ordem) {
+        exibirMensagem('Ordem nao encontrada para edicao.', 'erro');
+        return;
+    }
+
+    state.editingOrderId = ordem.id;
+    preencherSelectPai();
+    document.getElementById('produto').value = ordem.produto || '';
+    document.getElementById('quantidade').value = ordem.quantidade || 1;
+    document.getElementById('valor-unitario').value = Number(ordem.valor_unitario || 0).toFixed(2);
+    document.getElementById('data-prevista').value = ordem.data_prevista || '';
+    document.getElementById('ordem-pai').value = ordem.ordem_pai_id ? String(ordem.ordem_pai_id) : '';
+    document.getElementById('status-novo').value = ordem.status || 'Pendente';
+    document.getElementById('prioridade-nova').value = ordem.prioridade || 'Media';
+
+    document.querySelectorAll('#status-choice-group .choice-chip').forEach((chip) => {
+        chip.classList.toggle('choice-chip-active', chip.dataset.value === document.getElementById('status-novo').value);
+    });
+    document.querySelectorAll('#priority-choice-group .choice-chip').forEach((chip) => {
+        chip.classList.toggle('choice-chip-active', chip.dataset.value === document.getElementById('prioridade-nova').value);
+    });
+
+    atualizarModoFormulario();
+    atualizarResumoFinanceiro();
+    document.getElementById('form-ordem').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('produto').focus();
+}
+
+function cancelarEdicao() {
+    resetarFormulario();
 }
 
 async function criarOrdem() {
@@ -843,12 +1013,16 @@ async function criarOrdem() {
     }
 
     const botao = document.getElementById('btn-cadastrar');
+    const editando = Number.isInteger(state.editingOrderId);
+    const ordemId = state.editingOrderId;
     botao.disabled = true;
-    botao.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gravando ordem';
+    botao.innerHTML = editando
+        ? '<i class="fas fa-spinner fa-spin"></i> Salvando alteracoes'
+        : '<i class="fas fa-spinner fa-spin"></i> Gravando ordem';
 
     try {
-        const { response, data } = await apiRequest('/ordens', {
-            method: 'POST',
+        const { response, data } = await apiRequest(editando ? `/ordens/${ordemId}` : '/ordens', {
+            method: editando ? 'PUT' : 'POST',
             auth: true,
             body: payload
         });
@@ -860,12 +1034,20 @@ async function criarOrdem() {
         resetarFormulario();
         resetarFiltrosMonitoramento();
         await carregarDashboard();
-        exibirMensagem(`Ordem #${data.id} cadastrada com sucesso.`, 'sucesso');
+        exibirMensagem(
+            editando
+                ? `Ordem #${data.id} atualizada com sucesso.`
+                : `Ordem #${data.id} cadastrada com sucesso.`,
+            'sucesso'
+        );
     } catch (error) {
-        exibirMensagem(error.message || 'Erro ao cadastrar ordem.', 'erro');
+        exibirMensagem(
+            error.message || (editando ? 'Erro ao editar ordem.' : 'Erro ao cadastrar ordem.'),
+            'erro'
+        );
     } finally {
         botao.disabled = false;
-        botao.innerHTML = '<i class="fas fa-plus"></i> Registrar ordem';
+        atualizarModoFormulario();
     }
 }
 
@@ -912,6 +1094,11 @@ async function excluirOrdem(id) {
 }
 
 async function exportarOrdens(formato) {
+    if (!isAdmin()) {
+        exibirMensagem('Somente admin pode exportar arquivos.', 'erro');
+        return;
+    }
+
     const botaoId = formato === 'pdf' ? 'btn-export-pdf' : 'btn-export-xlsx';
     const botao = document.getElementById(botaoId);
     const textoOriginal = botao.innerHTML;

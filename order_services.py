@@ -8,7 +8,7 @@ from collections import defaultdict
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
-from auth_utils import usuario_atual
+from auth_utils import normalizar_role, usuario_atual
 from database import get_connection
 
 
@@ -321,9 +321,39 @@ def validate_money(value):
     return round(valor, 2)
 
 
+def validar_ordem_pai(conn, ordem_pai_id_raw, status, ordem_id_atual=None):
+    ordem_pai_id = None
+    if ordem_pai_id_raw not in (None, '', 0, '0'):
+        try:
+            ordem_pai_id = int(ordem_pai_id_raw)
+            if ordem_pai_id <= 0:
+                raise ValueError()
+        except (TypeError, ValueError):
+            raise ServiceError('ordemPaiId deve ser um inteiro positivo.')
+
+        if ordem_id_atual is not None and ordem_pai_id == ordem_id_atual:
+            raise ServiceError('Uma ordem nao pode depender dela mesma.')
+
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, status FROM ordens WHERE id = ?', (ordem_pai_id,))
+        ordem_pai = cursor.fetchone()
+        if ordem_pai is None:
+            raise ServiceError('Ordem pai informada nao existe.')
+        if status != 'Pendente' and ordem_pai['status'] != 'Concluida':
+            raise ServiceError(
+                'Ordem filha bloqueada: conclua a ordem pai antes de iniciar.',
+                409
+            )
+
+    return ordem_pai_id
+
+
 def validate_new_order_payload(dados, conn):
     if not dados:
         raise ServiceError('Body ausente ou invalido.')
+
+    _, role = usuario_atual()
+    role = normalizar_role(role)
 
     produto = html.escape(str(dados.get('produto', '')).strip())
     if not produto:
@@ -344,6 +374,11 @@ def validate_new_order_payload(dados, conn):
     status = normalizar_status(dados.get('status', 'Pendente'))
     if status not in ALLOWED_STATUSES:
         raise ServiceError(f'Status invalido. Use: {list(ALLOWED_STATUSES)}')
+    if role != 'admin' and status != 'Pendente':
+        raise ServiceError(
+            'Perfil usuario so pode cadastrar ordens com status inicial Pendente.',
+            403
+        )
 
     prioridade = normalizar_prioridade(dados.get('prioridade', dados.get('priority')))
     if prioridade not in ALLOWED_PRIORITIES:
@@ -356,26 +391,11 @@ def validate_new_order_payload(dados, conn):
     if data_prevista_raw not in (None, '') and data_prevista is None:
         raise ServiceError('dataPrevista deve estar no formato YYYY-MM-DD.')
 
-    ordem_pai_id_raw = dados.get('ordemPaiId', dados.get('ordem_pai_id'))
-    ordem_pai_id = None
-    if ordem_pai_id_raw not in (None, '', 0, '0'):
-        try:
-            ordem_pai_id = int(ordem_pai_id_raw)
-            if ordem_pai_id <= 0:
-                raise ValueError()
-        except (TypeError, ValueError):
-            raise ServiceError('ordemPaiId deve ser um inteiro positivo.')
-
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, status FROM ordens WHERE id = ?', (ordem_pai_id,))
-        ordem_pai = cursor.fetchone()
-        if ordem_pai is None:
-            raise ServiceError('Ordem pai informada nao existe.')
-        if status != 'Pendente' and ordem_pai['status'] != 'Concluida':
-            raise ServiceError(
-                'Ordem filha bloqueada: conclua a ordem pai antes de iniciar.',
-                409
-            )
+    ordem_pai_id = validar_ordem_pai(
+        conn,
+        dados.get('ordemPaiId', dados.get('ordem_pai_id')),
+        status
+    )
 
     return {
         'produto': produto,
@@ -427,60 +447,131 @@ def create_order(dados):
 def update_order_status(ordem_id, dados):
     if not dados:
         raise ServiceError('Body ausente ou invalido.')
-    novo_status = normalizar_status(dados.get('status'))
-    if not novo_status:
-        raise ServiceError('Campo status e obrigatorio.')
-    if novo_status not in ALLOWED_STATUSES:
-        raise ServiceError(f'Status invalido. Use: {list(ALLOWED_STATUSES)}')
 
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute('SELECT id, status FROM ordens WHERE id = ?', (ordem_id,))
+        cursor.execute(
+            '''
+            SELECT id, produto, quantidade, status, prioridade, valor_unitario,
+                   data_prevista, ordem_pai_id, concluido_em
+            FROM ordens
+            WHERE id = ?
+            ''',
+            (ordem_id,)
+        )
         atual = cursor.fetchone()
         if atual is None:
             raise ServiceError(f'Ordem {ordem_id} nao encontrada.', 404)
 
-        cursor.execute(
-            '''
-            SELECT o.ordem_pai_id, p.status AS ordem_pai_status
-            FROM ordens o
-            LEFT JOIN ordens p ON p.id = o.ordem_pai_id
-            WHERE o.id = ?
-            ''',
-            (ordem_id,)
+        produto = html.escape(str(dados.get('produto', atual['produto'])).strip())
+        if not produto:
+            raise ServiceError('Campo produto e obrigatorio.')
+        if len(produto) > 200:
+            raise ServiceError('Produto: max 200 caracteres.')
+
+        quantidade_raw = dados.get('quantidade', atual['quantidade'])
+        try:
+            quantidade = int(quantidade_raw)
+            if quantidade <= 0 or quantidade > 999999:
+                raise ValueError()
+        except (TypeError, ValueError):
+            raise ServiceError('quantidade: inteiro entre 1 e 999999.')
+
+        novo_status = normalizar_status(dados.get('status', atual['status']))
+        if not novo_status:
+            raise ServiceError('Campo status e obrigatorio.')
+        if novo_status not in ALLOWED_STATUSES:
+            raise ServiceError(f'Status invalido. Use: {list(ALLOWED_STATUSES)}')
+
+        prioridade = normalizar_prioridade(
+            dados.get('prioridade', dados.get('priority', atual['prioridade']))
         )
-        dependencia = cursor.fetchone()
-        if (
-            dependencia['ordem_pai_id']
-            and dependencia['ordem_pai_status'] != 'Concluida'
-            and novo_status in ('Em andamento', 'Concluida')
-        ):
-            raise ServiceError(
-                'Ordem filha bloqueada: conclua a ordem pai antes de iniciar.',
-                409
+        if prioridade not in ALLOWED_PRIORITIES:
+            raise ServiceError(f'Prioridade invalida. Use: {list(ALLOWED_PRIORITIES)}')
+
+        valor_unitario = validate_money(
+            dados.get('valorUnitario', dados.get('valor_unitario', atual['valor_unitario']))
+        )
+
+        if 'dataPrevista' in dados or 'data_prevista' in dados:
+            data_prevista_raw = dados.get('dataPrevista', dados.get('data_prevista'))
+        else:
+            data_prevista_raw = atual['data_prevista']
+        data_prevista = parse_iso_date(data_prevista_raw)
+        if data_prevista_raw not in (None, '') and data_prevista is None:
+            raise ServiceError('dataPrevista deve estar no formato YYYY-MM-DD.')
+
+        if 'ordemPaiId' in dados or 'ordem_pai_id' in dados:
+            ordem_pai_raw = dados.get('ordemPaiId', dados.get('ordem_pai_id'))
+        else:
+            ordem_pai_raw = atual['ordem_pai_id']
+        ordem_pai_id = validar_ordem_pai(conn, ordem_pai_raw, novo_status, ordem_id)
+
+        if atual['status'] == 'Concluida' and novo_status != 'Concluida':
+            cursor.execute(
+                '''
+                SELECT COUNT(*) AS total
+                FROM ordens
+                WHERE ordem_pai_id = ? AND status IN ('Em andamento', 'Concluida')
+                ''',
+                (ordem_id,)
             )
+            if cursor.fetchone()['total'] > 0:
+                raise ServiceError(
+                    'Nao e possivel reabrir esta ordem: existem ordens filhas em execucao ou concluidas.',
+                    409
+                )
 
         concluido_em = now_local_str() if novo_status == 'Concluida' else None
         cursor.execute(
             '''
             UPDATE ordens
-            SET status = ?, atualizado_em = ?, concluido_em = ?
+            SET produto = ?, quantidade = ?, status = ?, prioridade = ?,
+                valor_unitario = ?, data_prevista = ?, ordem_pai_id = ?,
+                atualizado_em = ?, concluido_em = ?
             WHERE id = ?
             ''',
-            (novo_status, now_local_str(), concluido_em, ordem_id)
+            (
+                produto,
+                quantidade,
+                novo_status,
+                prioridade,
+                valor_unitario,
+                data_prevista.isoformat() if data_prevista else None,
+                ordem_pai_id,
+                now_local_str(),
+                concluido_em,
+                ordem_id
+            )
         )
         conn.commit()
-        status_anterior = atual['status']
+        anteriores = dict(atual)
     finally:
         conn.close()
 
     ordem = get_order_by_id(ordem_id)
-    registrar_log_acao('atualizou_ordem', ordem_id, {
-        'status_anterior': status_anterior,
-        'status_novo': novo_status,
+    registrar_log_acao('editou_ordem', ordem_id, {
+        'antes': {
+            'produto': anteriores['produto'],
+            'quantidade': anteriores['quantidade'],
+            'status': anteriores['status'],
+            'prioridade': anteriores['prioridade'],
+            'valor_unitario': anteriores['valor_unitario'],
+            'data_prevista': anteriores['data_prevista'],
+            'ordem_pai_id': anteriores['ordem_pai_id'],
+        },
+        'depois': {
+            'produto': ordem['produto'],
+            'quantidade': ordem['quantidade'],
+            'status': ordem['status'],
+            'prioridade': ordem['prioridade'],
+            'valor_unitario': ordem['valor_unitario'],
+            'data_prevista': ordem['data_prevista'],
+            'ordem_pai_id': ordem['ordem_pai_id'],
+        },
     })
-    if status_anterior != 'Concluida' and novo_status == 'Concluida':
+    if anteriores['status'] != 'Concluida' and novo_status == 'Concluida':
         disparar_webhooks('ordem_concluida', ordem)
     return ordem
 

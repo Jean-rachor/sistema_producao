@@ -846,6 +846,16 @@ select {
     background: rgba(255, 93, 93, 0.16);
 }
 
+.btn-icon-neutral {
+    border-color: rgba(0, 148, 255, 0.22);
+    background: rgba(0, 148, 255, 0.1);
+    color: #d8f1ff;
+}
+
+.btn-icon-neutral:hover {
+    background: rgba(0, 148, 255, 0.16);
+}
+
 .empty-state {
     padding: 48px 24px;
     border-radius: var(--radius-lg);

@@ -9,7 +9,8 @@ DB_PATH = os.path.join(BASE_DIR, 'ordens.db')
 
 DEFAULT_USERS = (
     ('admin', 'admin123', 'admin'),
-    ('operador', 'operador123', 'operador'),
+    ('usuario', 'usuario123', 'usuario'),
+    ('operador', 'operador123', 'usuario'),
     ('visualizador', 'visualizador123', 'visualizador'),
 )
 
@@ -139,6 +140,14 @@ def init_db():
             role TEXT NOT NULL,
             criado_em TEXT DEFAULT (datetime('now', 'localtime'))
         )
+        '''
+    )
+
+    cursor.execute(
+        '''
+        UPDATE usuarios
+        SET role = 'usuario'
+        WHERE role = 'operador'
         '''
     )
 

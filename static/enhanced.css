@@ -111,6 +111,12 @@
     font-weight: 800;
 }
 
+.session-scope {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.5;
+}
+
 .role-badge {
     display: inline-flex;
     align-items: center;
@@ -131,6 +137,11 @@
 }
 
 .role-operador {
+    color: #fff4cf;
+    background: rgba(248, 179, 25, 0.18);
+}
+
+.role-usuario {
     color: #fff4cf;
     background: rgba(248, 179, 25, 0.18);
 }
@@ -192,6 +203,31 @@
     color: #ffeab1;
     font-size: 0.92rem;
     line-height: 1.6;
+}
+
+.form-mode-note {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    margin-top: 18px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(121, 160, 191, 0.18);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-soft);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.permission-note strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #fff4cf;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
 select,
@@ -435,6 +471,22 @@ button:disabled {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-start;
+}
+
+.form-actions .btn {
+    flex: 0 0 auto;
+    min-width: 220px;
+}
+
+.toolbar-actions .btn:disabled {
+    border-style: dashed;
 }
 
 .monitor-tools-wide {
